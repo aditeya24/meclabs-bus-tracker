@@ -4,24 +4,22 @@ let currentRandomLongitude = null;
 let watchId = null;
 let randomLocationIntervalId = null;
 let sender_id = null;
-let bearing = Math.random() * 2 * Math.PI; // Initial random bearing (0 - 2π radians)
-let speed = 20;
+let bearing = Math.random() * 2 * Math.PI;
+let speed = 10;
 timeInterval = 2000;
 
 document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("randomLocation").addEventListener("click", () => {
+    document.getElementById("randomLocation").classList.add("hidden");
     if (watchId) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          currentRandomLatitude =
-            position.coords.latitude + (Math.random() - 0.5) * 0.02;
-          currentRandomLongitude =
-            position.coords.longitude + (Math.random() - 0.5) * 0.02;
+          currentRandomLatitude = position.coords.latitude;
+          currentRandomLongitude = position.coords.longitude;
         },
         () => {
-          currentRandomLatitude = currentRandomLatitude =
-            37.7749 + (Math.random() - 0.5) * 0.02;
-          currentRandomLongitude = -122.4194 + (Math.random() - 0.5) * 0.02;
+          currentRandomLatitude = Math.random() * 360 - 180;
+          currentRandomLongitude = Math.random() * 180 - 90;
         },
       );
 
@@ -39,6 +37,8 @@ document.addEventListener("DOMContentLoaded", function () {
       document.getElementById("status").textContent =
         "Bus name set to: " + busName;
       getSenderId(busName);
+      document.getElementById("randomLocation").classList.remove("hidden");
+      document.getElementById("setBusName").classList.add("hidden");
     } else {
       document.getElementById("status").textContent =
         "Please enter a bus name.";
@@ -69,7 +69,6 @@ async function getSenderId(busName) {
     });
     const { connection_id } = await registerResponse.json();
     sender_id = connection_id;
-    console.log("Connection ID:", connection_id);
     sendLocation();
   } catch (error) {
     document.getElementById("status").textContent =
@@ -106,11 +105,10 @@ function errorCallback(error) {
   console.error("Geolocation error:", error);
 }
 function getRandomLocation() {
-  bearing += (Math.random() - 0.5) * 0.1; // Adjust turn rate as needed
+  bearing += (Math.random() - 0.5) * 0.5;
 
-  // 2. Calculate displacement based on speed and bearing:
-  const distance = (speed * timeInterval) / 1000; // Distance traveled in meters
-  const earthRadius = 6371000; // Earth's radius in meters
+  const distance = (speed * timeInterval) / 1000;
+  const earthRadius = 6371000;
   const latChange =
     (distance / earthRadius) * (180 / Math.PI) * Math.cos(bearing);
   const lonChange =
