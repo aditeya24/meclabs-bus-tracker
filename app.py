@@ -1,3 +1,6 @@
+import eventlet
+
+eventlet.monkey_patch()
 import os
 import shutil
 import threading
@@ -11,7 +14,7 @@ from flask_socketio import SocketIO
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.urandom(24)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*")
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 # Session(app)
@@ -27,8 +30,23 @@ connection_data = {}
 
 
 @app.route("/")
+def root():
+    return render_template("landing.html")
+
+
+@app.route("/landing")
+def landing():
+    return render_template("landing.html")
+
+
+@app.route("/map")
 def index():
     return render_template("index.html")
+
+
+@app.route("/about")
+def about():
+    return render_template("about.html")
 
 
 @app.route("/live_bus_locations")
@@ -49,6 +67,7 @@ def register_connection():
         return jsonify({"error": "busName is required"}), 400
     connection_id = str(uuid.uuid4())
     connection_data[connection_id] = {"bus_name": bus_name, "time": time.time()}
+    handle_get_available_buses()
     return jsonify({"connection_id": connection_id}), 201
 
 
@@ -83,14 +102,20 @@ def location_sender():
     return render_template("index.html")
 
 
+@socketio.on("connect")
+def handle_connect():
+    locations = get_all_latest_locations()
+    socketio.emit("locations_update", locations)
+
+
 # @socketio.on("connect")
 # def handle_connect():
-#     locations = get_all_latest_locations()
-#     socketio.emit("locations_update", locations)
+#     print("Client connected")
 
 
 @socketio.on("get_latest_locations")
 def handle_get_latest_locations():
+    print("get_latest_location")
     locations = get_all_latest_locations()
     socketio.emit("locations_update", locations)
 
@@ -200,8 +225,8 @@ def clear_temp_folder():
 
 
 def delete_inactive_directories(inactive_threshold=600):
+    print("deleting")
     while True:
-        print("deleting")
         current_time = time.time()
         dirs_to_delete = []
 
@@ -222,11 +247,12 @@ def delete_inactive_directories(inactive_threshold=600):
         time.sleep(600)
 
 
-if __name__ == "__main__":
+socketio.start_background_task(send_location_updates)
+clear_temp_folder()
+cleanup_thread = threading.Thread(target=delete_inactive_directories, daemon=True)
+cleanup_thread.start()
 
-    socketio.start_background_task(send_location_updates)
-    clear_temp_folder()
-    cleanup_thread = threading.Thread(target=delete_inactive_directories, daemon=True)
-    cleanup_thread.start()
+# if __name__ == "__main__":
 
-    socketio.run(app, debug=True, ssl_context="adhoc", host="0.0.0.0")
+
+# socketio.run(app, async_mode="eventlet")
